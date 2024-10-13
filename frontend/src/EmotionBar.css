@@ -1,0 +1,8 @@
+.side-by-side {
+    display: flex;
+    justify-content: space-between; /* Add space between the divs */
+    gap: 10px; /* Adds space between the two divs */
+    justify-content: center; /* Centers horizontally */
+  align-items: center; /* Centers vertically */
+  text-align: center; /* Centers text inside */
+  }

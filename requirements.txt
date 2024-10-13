@@ -1,0 +1,4 @@
+websockets
+pandas
+flask-cors
+#pip install -U flask-cors
