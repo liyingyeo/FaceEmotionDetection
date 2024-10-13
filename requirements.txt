@@ -1,3 +1,7 @@
+flask
+flask_socketio
+ultralytics
+face_recognition
 websockets
 pandas
 flask-cors

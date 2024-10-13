@@ -16,6 +16,13 @@ Folder structure
 ├── templates_old
 └── yolov8n.pt
 
+conda create -n dashboard python=3.11
+
+conda activate dashboard 
+
+pip install -r requirements.txt
+
+
 
 Developing Frontend
 ```
