@@ -3,6 +3,8 @@ import Button from 'react-bootstrap/Button';
 import io from 'socket.io-client';
 import EmotionBar from './EmotionBar.js';
 import PainGraph from './PainGraph.js';
+import PieChart from './PieChart.js';
+import './Dashboard.css';
 
 export default function Dashboard() {
     // const Dashboard = () => {
@@ -15,14 +17,14 @@ export default function Dashboard() {
   const [streaming, setStreaming] = useState(false);
   const [boxes, setBoxes] = useState([]);
   const [isDisabled, setIsDisabled] = useState(false);
-  const [buttonText, setButtonText] = useState('Click Me');
+  const [buttonText, setButtonText] = useState('Start');
   const [isOnline, setOnline] = useState(false);
   const socket = io.connect('http://localhost:8080'); // Adjust to your Flask server's URL
 
 
-  const handleClick = () => {
+  const handleClick = (e) => {
     if (startSend) {
-      console.log("startSend" + startSend);
+      console.log("startSend" + startSend + 'Start') ;
       setStartSend(false);
       setButtonText("Start");
       const canvas = canvasRef.current;
@@ -31,7 +33,7 @@ export default function Dashboard() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       setStreaming(false);
     } else {
-      console.log("startSend" + startSend);
+      console.log("startSend" + startSend + 'Stop');
       setStartSend(true);
       setButtonText("Stop");
       const canvas = canvasRef.current;
@@ -126,13 +128,13 @@ const startVideoStream = async () => {
       console.log("WebSocket connection established");
       setIsDisabled(false);
       setOnline(true);
-      setButtonText("Start");
+      //setButtonText("Start");
     });
     // Handle incoming bounding boxes from server
     socket.on('processed_frame', (data) => {
       //const detection = JSON.parse(data); // Parse the received JSON data
       const boxes = JSON.parse(data);  // Parse the received JSON data
-      console.log(boxes);
+      //console.log(boxes);
       //setBoxes(boxes);
       drawDetections(boxes.detections);
 
@@ -239,26 +241,32 @@ const startVideoStream = async () => {
 
     return (
         <div style={{position: 'relative'}}>
-            <div style={{position: 'absolute', top: 0, left : 0}}>
-            <div >
-            {isOnline
-            ? <div style={{ backgroundColor: 'green', color: 'white', height: '40px', width: '150px', float: 'left', position: 'relative' }}>Online</div>
-            : <div style={{ backgroundColor: 'red', color: 'white', height: '35px', width: '150px', float: 'left', position: 'relative' }}>Offline</div>
-            }
-            <div style={{ float: 'left', position: 'relative' }}>
-            {isOnline
-            ? <Button variant="primary" onClick={handleClick}>{buttonText}</Button>
-            : <Button variant="primary" onClick={handleClick} disabled>{buttonText}</Button>
-
-            }
             
-            </div></div>
-            <br/>
-        </div>
-            <div style={{ top: 40, left: '0', position: 'absolute', display: 'inline-block' , height : '480px', width: '640px' }}>
-            <video ref={videoRef} width="640" height="480" autoPlay style={{ display: streaming ? 'block' : 'none' }} />
-            <canvas ref={canvasRef} width="640" height="480" style={{ position: 'absolute', top: 0, left: 0, height: '480px !important',width: '640px !important' }} />
-             <canvas ref={canvasRef2} width="640" height="480" style={{ display: 'none' }} />         
+        <div className="container">
+        <div class="row">
+          <div class="col-12 col-md-6 mb-3">
+          <div class="row">
+            <div style={{position: 'relative', top: 0, left : 0 ,display: ''}}>
+              <div >
+              {isOnline
+              ? <div style={{ backgroundColor: 'green', color: 'white', height: '40px', width: '150px', float: 'left', position: 'relative' }}>Online</div>
+              : <div style={{ backgroundColor: 'red', color: 'white', height: '35px', width: '150px', float: 'left', position: 'relative' }}>Offline</div>
+              }
+              <div style={{ float: 'left', position: 'relative' }}>
+              {isOnline
+              ? <Button variant="primary" onClick={handleClick}>{buttonText}</Button>
+              : <Button variant="primary" onClick={handleClick} disabled>{buttonText}</Button>
+
+              }
+              
+              </div></div>
+              <br/>
+          </div>
+          </div>
+          <div style={{position: 'absolute', top: 40, left: 10 , display: 'inline-block', height : '480px', width: '640px' }}>
+            <video  className='camera'  ref={videoRef} width="640" height="480" autoPlay style={{ display: streaming ? 'block' : 'none' }} />
+            <canvas className='camera' ref={canvasRef} width="640" height="480" style={{  position: 'absolute', top: 0, left: 0}} />
+             <canvas className='camera' ref={canvasRef2} width="640" height="480" style={{ display: 'none' }} />         
             {boxes.map((box, index) => (
                     <div
                     key={index}
@@ -269,7 +277,7 @@ const startVideoStream = async () => {
                         top: box.y1,
                         width: box.x2 - box.x1,
                         height: box.y2 - box.y1,
-                        color: 'red',
+                        color: 'green',
                         display: 'flex',
                         justifyContent: 'center',
                         alignItems: 'center',
@@ -281,14 +289,23 @@ const startVideoStream = async () => {
                     </div>
                 ))}
             </div>
-            <div style={{ top: 40, left: '0', position: 'relative', display: 'inline-block' , height : '150px', width: '330px', border: '0px solid red' }}>
+          </div>
+          <div class="col-12 col-md-6">
+            <div class="row">
+            <PieChart></PieChart>
+            </div>
+            <div style={{  border: '0px solid red' }}>
                 <div style={{ position: 'relative', display: 'inline-block' , height : '120px' }}>
                 <EmotionBar/>
                 </div>
                 <div style={{  position: 'relative', display: 'inline-block' , height : '480px' }}>
                 <PainGraph />
                 </div>
-            </div>
+            </div></div>
+          </div>
+        </div>
+            
+            
         </div>
     );
     // return {

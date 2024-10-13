@@ -24,6 +24,7 @@ model = YOLO('yolov8n.pt')  # YOLOv8n is the smallest version, you can choose an
 sfr = SimpleFacerec()
 sfr.load_encoding_images("images/")
 pain_data = [];
+emotion_daily_data=[];
 
 # Serve the index.html file from the templates folder
 @app.route('/')
@@ -31,16 +32,34 @@ pain_data = [];
 def index():
     return render_template('index.html')
 
+
+@app.route('/pie_data')
+@cross_origin()
+def pie_data():
+    if(len(emotion_daily_data)>6):
+        emotion_daily_data.pop(0);
+    
+    emotion_daily_data.append(random.randint(1, 3)) 
+
+    # for _ in range(10):
+    #     value.append(random.randint(1, 10))  # Random numbers between 1 and 10
+        #value2.append(random.randint(1, 10))  # Random numbers between 1 and 10
+        #value3.append(random.randint(1, 10))  # Random numbers between 1 and 10
+    
+    labels = ['happy', 'sad', 'angry', 'panic', 'scare', 'normal']
+    return json.dumps({'status': 'success', "labels": labels,  "data" : emotion_daily_data })
+
+
 @app.route('/data')
 @cross_origin()
 def data():
     value = [];
     value2 = [];
     value3 = [];
-    if(len(pain_data)>10):
+    if(len(pain_data)>20):
         pain_data.pop(0);
     
-    pain_data.append(random.randint(1, 3)) 
+    pain_data.append(random.randint(0, 3)) 
 
     # for _ in range(10):
     #     value.append(random.randint(1, 10))  # Random numbers between 1 and 10
@@ -50,7 +69,7 @@ def data():
     start_time = datetime.now()
 
     # Generate timestamps for the next 10 minutes with a 1-minute interval
-    timestamps = [start_time + timedelta(minutes=i) for i in range(10)]
+    timestamps = [start_time + timedelta(minutes=i) for i in range(20)]
     timestamp_strings = [timestamp.isoformat() for timestamp in timestamps]
 
 

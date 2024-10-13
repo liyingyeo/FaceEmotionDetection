@@ -100,7 +100,7 @@ export default function PainGraph() {
         beginAtZero: true,
         title: {
           display: true,
-          text: 'Value',
+          text: 'Pain Level',
         },
       },
     },
@@ -118,7 +118,7 @@ export default function PainGraph() {
             <h1>Pain Detection Graph</h1>
         </section>
         <div>
-        <Line data={chartData} options={options} />
+        <Line className='painGraph' data={chartData} options={options} />
         </div>
         </div>
     );
