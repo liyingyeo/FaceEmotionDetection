@@ -21,6 +21,25 @@ const PieChart = () => {
     ],
   });
 
+  // Chart options to tidy up the legend
+  const options = {
+    plugins: {
+      legend: {
+        position: 'right', // Position legend to the right
+        labels: {
+          boxWidth: 20, // Size of the legend box
+          padding: 15,  // Padding between legend items
+          font: {
+            size: 14,   // Font size for legend text
+            family: "'Arial', sans-serif", // Font family
+            weight: 'bold',  // Font weight
+          },
+          color: '#333',  // Color of legend text
+        },
+      },
+    },
+  };
+
   const apiUrl = 'http://localhost:8080'; // Adjust to your Flask server's URL
 
 
@@ -54,16 +73,19 @@ const PieChart = () => {
     fetchData();
 
     // Fetch data every 10 seconds
-    const intervalId = setInterval(fetchData, 1000);
+    const intervalId = setInterval(fetchData, 5000);
 
     // Cleanup interval on component unmount
     return () => clearInterval(intervalId);
   }, []);
 
   return (
-    <div>
-      <h2>Pie Chart Example</h2>
-      <Pie className='pieChart' data={chartData} />
+    <div >
+        <div class="row" style={{textAlign : 'left'}}>
+      <h1>Daily Emotion</h1></div>
+      <div class="row">
+      <Pie className='pieChart' data={chartData} options={options} />
+      </div>
     </div>
   );
 };

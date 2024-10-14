@@ -5,9 +5,18 @@
     height:480px !important;
   }
 
+  /* .camera{
+    width:320px !important;
+    height:240px !important;
+  } */
+
+  .cameraDiv{
+    width:640px;
+    height:480px;
+  }
+
   .camera{
     width:640px !important;
     height:480px !important;
   }
-
   

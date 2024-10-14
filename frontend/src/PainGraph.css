@@ -1,11 +1,11 @@
 .chart-container {
-    width: 1000px;
+    width: 100%;
     height:600px
  }
 
  .painGraph{
 
-    width:750px !important;
+    width:100% !important;
     height:380px !important;
   
   }

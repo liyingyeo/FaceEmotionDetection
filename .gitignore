@@ -24,3 +24,8 @@ frontend/yarn-debug.log*
 frontend/yarn-error.log*
 
 *.pyc
+yolov8*
+InceptResNet_v9.json
+InceptResNet_v9.weights.h5
+InceptResNet_IG_multi_v3.json
+InceptResNet_IG_multi_v3.weights.h5

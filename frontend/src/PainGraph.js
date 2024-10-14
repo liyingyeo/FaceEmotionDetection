@@ -111,6 +111,7 @@ export default function PainGraph() {
         display: true,
       },
     },
+    animation: false,
   };
     return (
         <div style={{float: 'left', position: 'relative'}}>
