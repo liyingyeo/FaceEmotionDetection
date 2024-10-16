@@ -1,7 +1,8 @@
+# import eventlet
+# eventlet.monkey_patch()  # This must be called before other imports
 from flask import Flask, render_template,send_from_directory
 from flask_socketio import SocketIO
 import base64
-from ultralytics import YOLO
 from io import BytesIO
 from PIL import Image
 import json
@@ -13,10 +14,15 @@ import numpy as np
 import face_recognition
 import time
 import pytz
+import os
+
+# Get the value of an environment variable
+mode = os.getenv('MODE', "CUSTOM")
 
 from tensorflow.keras.models import model_from_json  
 from tensorflow.keras.preprocessing import image
 import cv2
+
 
 #app = Flask(__name__)
 app = Flask(__name__, static_folder='frontend/build/static', template_folder='frontend/build')
@@ -24,33 +30,52 @@ app.config['CORS_HEADERS'] = 'Content-Type'
 cors = CORS(app)
 #socketio = SocketIO(cors)
 socketio = SocketIO(app, cors_allowed_origins="*")
+#socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*")
+
 #socketio = SocketIO(app)
 
 
 # Load the YOLO model
-yolo_model = YOLO('yolov8n.pt')  # YOLOv8n is the smallest version, you can choose another model
-
-#load emotional recognition model  
-resnet_model = model_from_json(open('InceptResNet_IG_multi_v3.json', 'r', encoding='utf-8').read())
-
-#load weights  
-resnet_model.load_weights('InceptResNet_IG_multi_v3.weights.h5')
+#yolo_model = YOLO('yolov8n.pt')  # YOLOv8n is the smallest version, you can choose another model
+yolo_model = None
+if(mode == "YOLO"):
+    from ultralytics import YOLO
+    yolo_model = YOLO('yolov8n-face.pt')  # YOLOv8n is the smallest version, you can choose another model
 
 
-sfr = SimpleFacerec()
-sfr.load_encoding_images("images/")
+resnet_model = None
+sfr = None
+if(mode == "CUSTOM"):
+    #load emotional recognition model  
+    resnet_model = model_from_json(open('InceptResNet_IG_multi_v3.json', 'r', encoding='utf-8').read())
+
+    #load weights  
+    resnet_model.load_weights('InceptResNet_IG_multi_v3.weights.h5')
+
+
+    sfr = SimpleFacerec()
+    sfr.load_encoding_images("images/")
 pain_data = [];
+emotion_bar_data=[];
 emotion_daily_data=[];
 frame_sequence = [];
 max_sequence_length = 3 
 
 singapore_tz = pytz.timezone('Asia/Singapore')  
+last_insert_time = datetime.now(singapore_tz)
 
 # Serve the index.html file from the templates folder
 @app.route('/')
 @cross_origin()
 def index():
     return render_template('index.html')
+
+
+@app.route('/bar_data')
+@cross_origin()
+def bar_data():
+    return json.dumps({'status': 'success',  "data" : emotion_bar_data })
+
 
 
 @app.route('/pie_data')
@@ -68,6 +93,7 @@ def pie_data():
     
     labels = ['happy', 'sad', 'angry', 'panic', 'scare', 'normal']
     return json.dumps({'status': 'success', "labels": labels,  "data" : emotion_daily_data })
+    
 
 
 @app.route('/data')
@@ -106,6 +132,9 @@ def send_static(path):
 @socketio.on('video_frame')
 @cross_origin()
 def handle_video_frame(message):
+    global last_insert_time
+    current_time = datetime.now(singapore_tz)
+
     data = json.loads(message)
     image_data = data['image']
     client_timestamp = data['timestamp']
@@ -127,90 +156,114 @@ def handle_video_frame(message):
     detections = []
     
 
-    # start_time = time.time()
-    # results = model.predict(frame_image)  # Run YOLO inference
-    # elapsed_time = time.time() - start_time
-    # print(f"model.predict( call took {elapsed_time:.2f} seconds")
-
-    #start_time = time.time()
-    
-    frame_image_cv = np.asarray(frame_image)
-    gray_img = cv2.cvtColor(frame_image_cv, cv2.COLOR_BGR2GRAY)    
-    gray_img = np.stack((gray_img,) * 3, axis=-1)
-    face_locations = face_recognition.face_locations(frame_image_cv)
-    for (top, right, bottom, left) in face_locations:
-        bbox = (left, top, right, bottom )
-        y1, x2, y2, x1 = top, right, bottom, left
-        roi_gray=gray_img[y1:y2, x1:x2] 
-        roi_gray=cv2.resize(roi_gray,(75,75)) 
-        img_pixels = image.img_to_array(roi_gray)   # Converts the image to a numpy array suitable for Keras model. 
-        img_pixels /= 255  
-        frame_sequence.append(img_pixels)
-        print("frame_sequence:", len(frame_sequence),"max_sequence_length" , max_sequence_length )
-        if len(frame_sequence) > max_sequence_length:
-            frame_sequence.pop(0)
-            sequence_input = np.expand_dims(np.array(frame_sequence), axis=0)
-            predictions = resnet_model.predict(sequence_input)     
-            emotion_predictions = predictions[0]   
-            pain_predictions = predictions[1]  
-            #print("emotion", emotion_predictions,"pain_predictions" ,pain_predictions)
-            max_index_emotion = np.argmax(emotion_predictions[0])
-            max_index_pain = np.argmax(pain_predictions[0])
-            Emotion_percent = emotion_predictions[0][max_index_emotion] * 100
-            Pain_percent = pain_predictions[0][max_index_pain] * 100
-            emotions = ["Anger", "Fear", "Happy", "Neutral", "Sadness", "Surprise", "Disgust", "Contempt"]
-            pain_label = ["No Pain", "Pain", "Very Pain"]
-            current_time = datetime.now(singapore_tz)
-            formatted_time = current_time.strftime('%Y-%m-%d %H:%M:%S')
-
-            predicted_emotion = emotions[max_index_emotion]
-            print(f'Emotion prediction:, {formatted_time} {predicted_emotion} {Emotion_percent:.2f}%')
-
-            predicted_pain = pain_label[max_index_pain]
-            print(f'Pain prediction:, {formatted_time} {predicted_pain} {Pain_percent:.2f}%')
+    if(mode == "YOLO"):
+        start_time = time.time()
+        results = yolo_model.predict(frame_image)  # Run YOLO inference
+        elapsed_time = time.time() - start_time
+        print(f"model.predict( call took {elapsed_time:.2f} seconds")
+        for detection in results[0].boxes:
+            bbox = detection.xyxy[0].tolist()  # Bounding box coordinates (x1, y1, x2, y2)
+            conf = detection.conf.item()       # Confidence score
+            cls = detection.cls.item()         # Class label
             detections.append({
                 'bbox': bbox,
-                'predicted_emotion' : predicted_emotion,
-                'predicted_pain' : predicted_pain,
-                "Emotion_percent" : Emotion_percent,
-                "Pain_percent" : Pain_percent,
-                'confidence': 'NA',
-                'class': 0  # Convert class index to integer
+                'confidence': conf,
+                'class': int(cls)  # Convert class index to integer
             })
+        # Return the detections as a JSON response
+        # return jsonify({'status': 'success', 'detections': detections})
+        # with open("frame.jpeg", "wb") as f:
+        #     f.write(base64.b64decode(img_data))
+    else:
+        frame_image_cv = np.asarray(frame_image)
+        gray_img = cv2.cvtColor(frame_image_cv, cv2.COLOR_BGR2GRAY)    
+        gray_img = np.stack((gray_img,) * 3, axis=-1)
+        start_time = time.time()
+        face_locations = face_recognition.face_locations(frame_image_cv)
+        elapsed_time = time.time() - start_time
+        print(f"model.predict( call took {elapsed_time:.2f} seconds")
+        for (top, right, bottom, left) in face_locations:
+            bbox = (left, top, right, bottom )
+            y1, x2, y2, x1 = top, right, bottom, left
+            roi_gray=gray_img[y1:y2, x1:x2] 
+            roi_gray=cv2.resize(roi_gray,(75,75)) 
+            img_pixels = image.img_to_array(roi_gray)   # Converts the image to a numpy array suitable for Keras model. 
+            img_pixels /= 255  
+            frame_sequence.append(img_pixels)
+            print("frame_sequence:", len(frame_sequence),"max_sequence_length" , max_sequence_length )
+            if len(frame_sequence) > max_sequence_length:
+                frame_sequence.pop(0)
+                sequence_input = np.expand_dims(np.array(frame_sequence), axis=0)
+                predictions = resnet_model.predict(sequence_input)     
+                emotion_predictions = predictions[0]   
+                pain_predictions = predictions[1]  
+                #print("emotion", emotion_predictions,"pain_predictions" ,pain_predictions)
+                max_index_emotion = np.argmax(emotion_predictions[0])
+                max_index_pain = np.argmax(pain_predictions[0])
+                Emotion_percent = emotion_predictions[0][max_index_emotion] * 100
+                Pain_percent = pain_predictions[0][max_index_pain] * 100
+                emotions = ["Anger", "Fear", "Happy", "Neutral", "Sadness", "Surprise", "Disgust", "Contempt"]
+                pain_label = ["No Pain", "Pain", "Very Pain"]
+                current_time = datetime.now(singapore_tz)
+                formatted_time = current_time.strftime('%Y-%m-%d %H:%M:%S')
+
+                predicted_emotion = emotions[max_index_emotion]
+                print(f'Emotion prediction:, {formatted_time} {predicted_emotion} {Emotion_percent:.2f}%')
+
+                predicted_pain = pain_label[max_index_pain]
+                print(f'Pain prediction:, {formatted_time} {predicted_pain} {Pain_percent:.2f}%')
+                detections.append({
+                    'bbox': bbox,
+                    'predicted_emotion' : predicted_emotion,
+                    'predicted_pain' : predicted_pain,
+                    "Emotion_percent" : Emotion_percent,
+                    "Pain_percent" : Pain_percent,
+                    'confidence': 'NA',
+                    'class': 0  # Convert class index to integer
+                })
+
+                #sampling rate 2 sec
+                if (current_time - last_insert_time).total_seconds() >= 2:
+                    if(len(emotion_bar_data)>10):
+                        emotion_bar_data.pop(0)
+                    emotion_bar_data.append({
+                        'predicted_emotion' : predicted_emotion,
+                        'predicted_pain' : predicted_pain,
+                        'timestamp' : client_timestamp
+                    })
+                    last_insert_time = current_time
+
+
+            #pil_image = Image.fromarray(frame_image_cv)
+            #cropped_image = pil_image.crop((left, top, right, bottom))
+            #cropped_image=cv2.resize(cropped_image,(75,75)) 
+            #img_pixels = image.img_to_array(cropped_image)   # Converts the image to a numpy array suitable for Keras model. 
+            #img_pixels /= 255  
+
+            
+        
+            #cropped_image.save('frame.jpeg')
             
 
-        #pil_image = Image.fromarray(frame_image_cv)
-        #cropped_image = pil_image.crop((left, top, right, bottom))
-        #cropped_image=cv2.resize(cropped_image,(75,75)) 
-        #img_pixels = image.img_to_array(cropped_image)   # Converts the image to a numpy array suitable for Keras model. 
-        #img_pixels /= 255  
+        #elapsed_time = time.time() - start_time
+        #print(f"face_recognition call took {elapsed_time:.2f} seconds")
 
         
-    
-        #cropped_image.save('frame.jpeg')
-        
-
-    #elapsed_time = time.time() - start_time
-    #print(f"face_recognition call took {elapsed_time:.2f} seconds")
-
-    # Process YOLO results
-    # for detection in results[0].boxes:
-    #     bbox = detection.xyxy[0].tolist()  # Bounding box coordinates (x1, y1, x2, y2)
-    #     conf = detection.conf.item()       # Confidence score
-    #     cls = detection.cls.item()         # Class label
-    #     detections.append({
-    #         'bbox': bbox,
-    #         'confidence': conf,
-    #         'class': int(cls)  # Convert class index to integer
-    #     })
-    # Return the detections as a JSON response
-    # return jsonify({'status': 'success', 'detections': detections})
-    # with open("frame.jpeg", "wb") as f:
-    #     f.write(base64.b64decode(img_data))
     socketio.emit('processed_frame', json.dumps({'status': 'success', 'detections': detections}))
     #socketio.send(jsonify({'status': 'success', 'detections': detections}))
     return ''
 
 # Run the Flask server with WebSocket support
 if __name__ == "__main__":
+    #Development
     socketio.run(app, host='0.0.0.0', port=8080, debug=True)
+    #Production
+    # sio = socketio.server(async_mode="gevent_uwsgi", cors_allowed_origins='*', engineio_logger=True)
+    # app = Flask(__name__)
+
+    # # this generates the uwsgi-runnable application
+
+    # my_wsgi = socketio.WSGIApp(sio)
+    # app = socketio.Middleware(sio, my_wsgi)
+    # http_server = WSGIServer(('', 8080), app)
+    # http_server.serve_forever()

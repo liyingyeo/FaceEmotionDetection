@@ -1,18 +1,23 @@
 import React, { useEffect, useRef, useState, useLayoutEffect } from 'react';
 
+import {API_URL} from './Config.js';
 import Dashboard from './Dashboard.js';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
+//import VideoDetection from './VideoDetection.js';
 
 const App = () => {
+
   const [activeTab, setActiveTab] = useState('Tab1');
   
   const renderContent = () => {
     switch (activeTab) {
       case 'Tab1':
+        // return <div></div>
         return <Dashboard></Dashboard>;
       case 'Tab2':
-        return <div>This is Tab 2 content</div>;
+        // return <VideoDetection width="640px" height="480px"></VideoDetection>;
+        return <div></div>
       case 'Tab3':
         return <div>This is Tab 3 content</div>;
       default:

@@ -5,6 +5,7 @@ import { PointElement } from 'chart.js';
 import { Chart as ChartJS, CategoryScale, LinearScale, LineElement, Title, Tooltip, Legend, TimeScale } from 'chart.js';
 import 'chartjs-adapter-date-fns'; // Needed for time-based charts
 import './PainGraph.css';
+import {API_URL} from './Config.js';
 
 // Register chart.js components
 ChartJS.register(CategoryScale, LinearScale, LineElement,PointElement, TimeScale, Title, Tooltip, Legend);
@@ -20,7 +21,7 @@ export default function PainGraph() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const apiUrl = 'http://localhost:8080'; // Adjust to your Flask server's URL
+  const apiUrl = API_URL; // Adjust to your Flask server's URL
 
   useEffect(() => {
     

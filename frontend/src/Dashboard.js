@@ -5,6 +5,8 @@ import EmotionBar from './EmotionBar.js';
 import PainGraph from './PainGraph.js';
 import PieChart from './PieChart.js';
 import './Dashboard.css';
+import {API_URL} from './Config.js';
+
 
 export default function Dashboard() {
     // const Dashboard = () => {
@@ -19,7 +21,7 @@ export default function Dashboard() {
   const [isDisabled, setIsDisabled] = useState(false);
   const [buttonText, setButtonText] = useState('Start');
   const [isOnline, setOnline] = useState(false);
-  const socket = io.connect('http://localhost:8080'); // Adjust to your Flask server's URL
+  const socket = io.connect(API_URL); // Adjust to your Flask server's URL
 
 
   const handleClick = (e) => {
@@ -247,11 +249,11 @@ const startVideoStream = async () => {
           <div className="container" >
             <div class="row" >
               <div class="col-12 col-md-6 mb-3" >
-                <div class="row" style={{border: '1px solid blue'}}>
+                <div class="row" style={{border: '0px solid blue'}}>
                   <div style={{position: 'relative', top: 0, left : 0 ,display: 'block'}}>
                     <div >
                         {isOnline
-                        ? <div style={{ backgroundColor: 'green', color: 'white', height: '40px', width: '150px', float: 'left', position: 'relative' }}>Online</div>
+                        ? <div style={{ backgroundColor: 'green', color: 'white', height: '30px', width: '150px', float: 'left', position: 'relative' }}>Online</div>
                         : <div style={{ backgroundColor: 'red', color: 'white', height: '35px', width: '150px', float: 'left', position: 'relative' }}>Offline</div>
                         }
                         <div style={{ float: 'left', position: 'relative' }}>
@@ -307,8 +309,8 @@ const startVideoStream = async () => {
                     
                 </div>
               </div>
-              <div class="row" style={{backgroundColor: '#EEFFFF'}}>
-                <div class="col-12" style={{backgroundColor: '#EEFFEE'}}>
+              <div class="row" >
+                <div class="col-12" >
                     <PainGraph />
                 </div>
               </div>

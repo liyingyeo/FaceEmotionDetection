@@ -3,9 +3,10 @@
 Folder structure
 - frontend - contains react project for web UI 
 - images - contains named picture for registered person
+
+```
 .
 ├── README.md
-├── __pycache__
 ├── app.py
 ├── frontend
 ├── images
@@ -15,6 +16,7 @@ Folder structure
 ├── static
 ├── templates_old
 └── yolov8n.pt
+```
 
 conda create -n dashboard python=3.11
 

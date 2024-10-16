@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Pie } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import './PieChart.css';
-
+import {API_URL} from './Config.js';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -40,7 +40,7 @@ const PieChart = () => {
     },
   };
 
-  const apiUrl = 'http://localhost:8080'; // Adjust to your Flask server's URL
+  const apiUrl = API_URL; // Adjust to your Flask server's URL
 
 
   // Fetch data from server-side API
