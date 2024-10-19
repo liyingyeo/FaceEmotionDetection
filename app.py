@@ -15,12 +15,16 @@ import face_recognition
 import time
 import pytz
 import os
+from database import EmotionRecord, AttentionRecord, Database
+
+db = Database()
 
 # Get the value of an environment variable
 mode = os.getenv('MODE', "CUSTOM")
 
 from tensorflow.keras.models import model_from_json  
 from tensorflow.keras.preprocessing import image
+from tensorflow.keras.models import load_model
 import cv2
 
 
@@ -37,7 +41,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Load the YOLO model
 #yolo_model = YOLO('yolov8n.pt')  # YOLOv8n is the smallest version, you can choose another model
-yolo_model = None
+yolo_model = "YOLO"
 if(mode == "YOLO"):
     from ultralytics import YOLO
     yolo_model = YOLO('yolov8n-face.pt')  # YOLOv8n is the smallest version, you can choose another model
@@ -45,17 +49,25 @@ if(mode == "YOLO"):
 
 resnet_model = None
 sfr = None
+model_json = 'InceptResNet_IG_multi_v3.json'
+model_h5 = 'InceptResNet_IG_multi_v3.weights.h5'
+emotions = ["Anger", "Fear", "Happy", "Neutral", "Sadness", "Surprise", "Disgust", "Contempt"]
+    
 if(mode == "CUSTOM"):
     #load emotional recognition model  
-    resnet_model = model_from_json(open('InceptResNet_IG_multi_v3.json', 'r', encoding='utf-8').read())
+    resnet_model = model_from_json(open(model_json, 'r', encoding='utf-8').read())
 
-    #load weights  
-    resnet_model.load_weights('InceptResNet_IG_multi_v3.weights.h5')
+    # #load weights  
+    resnet_model.load_weights(model_h5)
+    # Load the model from the .keras file
+    #resnet_model = load_model('InceptResNet_IG_multi_v2.14.keras')
+
 
 
     sfr = SimpleFacerec()
     sfr.load_encoding_images("images/")
 pain_data = [];
+pain_timestamp = [];
 emotion_bar_data=[];
 emotion_daily_data=[];
 frame_sequence = [];
@@ -77,6 +89,12 @@ def bar_data():
     return json.dumps({'status': 'success',  "data" : emotion_bar_data })
 
 
+@app.route('/attention')
+@cross_origin()
+def attention():
+    count = db.countAttention()
+    return json.dumps({'status': 'success',  "data" : count })
+
 
 @app.route('/pie_data')
 @cross_origin()
@@ -91,36 +109,37 @@ def pie_data():
         #value2.append(random.randint(1, 10))  # Random numbers between 1 and 10
         #value3.append(random.randint(1, 10))  # Random numbers between 1 and 10
     
-    labels = ['happy', 'sad', 'angry', 'panic', 'scare', 'normal']
-    return json.dumps({'status': 'success', "labels": labels,  "data" : emotion_daily_data })
+    return json.dumps({'status': 'success', "labels": emotions,  "data" : emotion_daily_data })
     
 
 
 @app.route('/data')
 @cross_origin()
 def data():
-    value = [];
-    value2 = [];
-    value3 = [];
-    if(len(pain_data)>20):
-        pain_data.pop(0);
+    # value = [];
+    # value2 = [];
+    # value3 = [];
+    # if(len(pain_data)>20):
+    #     pain_data.pop(0);
     
-    pain_data.append(random.randint(0, 3)) 
+    # pain_data.append(random.randint(0, 3)) 
 
     # for _ in range(10):
     #     value.append(random.randint(1, 10))  # Random numbers between 1 and 10
         #value2.append(random.randint(1, 10))  # Random numbers between 1 and 10
         #value3.append(random.randint(1, 10))  # Random numbers between 1 and 10
     
-    start_time = datetime.now()
+    # start_time = datetime.now()
 
-    # Generate timestamps for the next 10 minutes with a 1-minute interval
-    timestamps = [start_time + timedelta(minutes=i) for i in range(20)]
-    timestamp_strings = [timestamp.isoformat() for timestamp in timestamps]
+    # # Generate timestamps for the next 10 minutes with a 1-minute interval
+    #timestamps = [start_time + timedelta(minutes=i) for i in range(20)]
+    timestamp_strings = [timestamp.isoformat() for timestamp in pain_timestamp]
 
+    #print('timestamp_strings', timestamp_strings)
 
+    #print('pain_data', pain_data)
 
-    return json.dumps({'status': 'success', "timestamps" : timestamp_strings, 'values': pain_data, "values2": value2, "values3" : value3 })
+    return json.dumps({'status': 'success', "timestamps" : timestamp_strings, 'values': pain_data })
 
 
 @app.route('/static/<path:path>')
@@ -133,6 +152,7 @@ def send_static(path):
 @cross_origin()
 def handle_video_frame(message):
     global last_insert_time
+    global pain_data
     current_time = datetime.now(singapore_tz)
 
     data = json.loads(message)
@@ -143,7 +163,7 @@ def handle_video_frame(message):
     server_timestamp = int(time.time() * 1000)  # Milliseconds
 
     # If the timestamp difference is more than 1 second, skip processing
-    if server_timestamp - client_timestamp > 200:
+    if server_timestamp - client_timestamp > 2000:
         print("Skipping frame due to timestamp difference > 0.5 second")
         return ''
     
@@ -179,10 +199,16 @@ def handle_video_frame(message):
         gray_img = cv2.cvtColor(frame_image_cv, cv2.COLOR_BGR2GRAY)    
         gray_img = np.stack((gray_img,) * 3, axis=-1)
         start_time = time.time()
-        face_locations = face_recognition.face_locations(frame_image_cv)
+        
+        #face_locations = face_recognition.face_locations(frame_image_cv)
+        #print('face_recognition' , face_locations)
+
+        face_locations, name = sfr.detect_known_faces(frame_image_cv)
+        print('name' , name)
+
         elapsed_time = time.time() - start_time
-        print(f"model.predict( call took {elapsed_time:.2f} seconds")
-        for (top, right, bottom, left) in face_locations:
+        print(f"detect_known_faces .predict( call took {elapsed_time:.2f} seconds")
+        for (top, right, bottom, left),pname in zip(face_locations, name):
             bbox = (left, top, right, bottom )
             y1, x2, y2, x1 = top, right, bottom, left
             roi_gray=gray_img[y1:y2, x1:x2] 
@@ -190,7 +216,7 @@ def handle_video_frame(message):
             img_pixels = image.img_to_array(roi_gray)   # Converts the image to a numpy array suitable for Keras model. 
             img_pixels /= 255  
             frame_sequence.append(img_pixels)
-            print("frame_sequence:", len(frame_sequence),"max_sequence_length" , max_sequence_length )
+            #print("frame_sequence:", len(frame_sequence),"max_sequence_length" , max_sequence_length )
             if len(frame_sequence) > max_sequence_length:
                 frame_sequence.pop(0)
                 sequence_input = np.expand_dims(np.array(frame_sequence), axis=0)
@@ -202,7 +228,7 @@ def handle_video_frame(message):
                 max_index_pain = np.argmax(pain_predictions[0])
                 Emotion_percent = emotion_predictions[0][max_index_emotion] * 100
                 Pain_percent = pain_predictions[0][max_index_pain] * 100
-                emotions = ["Anger", "Fear", "Happy", "Neutral", "Sadness", "Surprise", "Disgust", "Contempt"]
+                #emotions = ["Anger", "Fear", "Happy", "Neutral", "Sadness", "Surprise", "Disgust", "Contempt"]
                 pain_label = ["No Pain", "Pain", "Very Pain"]
                 current_time = datetime.now(singapore_tz)
                 formatted_time = current_time.strftime('%Y-%m-%d %H:%M:%S')
@@ -212,8 +238,10 @@ def handle_video_frame(message):
 
                 predicted_pain = pain_label[max_index_pain]
                 print(f'Pain prediction:, {formatted_time} {predicted_pain} {Pain_percent:.2f}%')
+                #print('pname' , pname)
                 detections.append({
                     'bbox': bbox,
+                    'name' : pname,
                     'predicted_emotion' : predicted_emotion,
                     'predicted_pain' : predicted_pain,
                     "Emotion_percent" : Emotion_percent,
@@ -232,6 +260,16 @@ def handle_video_frame(message):
                         'timestamp' : client_timestamp
                     })
                     last_insert_time = current_time
+                    if(len(pain_data)>20):
+                        pain_data.pop(0);
+                    pain_timestamp.append(current_time)
+                    pain_data.append(int(max_index_pain)) 
+                    emotion_record = EmotionRecord(emotion_detected=predicted_emotion,userid=pname,pain_level=int(max_index_pain)) # Insert emotion into the database
+                    db.save(emotion_record)   
+                    #pain_record = PainRecord(pain_level=predicted_pain,userid=pname) # Insert pain into the datebase
+                    #db.save(pain_record)
+                    db.commit()
+
 
 
             #pil_image = Image.fromarray(frame_image_cv)

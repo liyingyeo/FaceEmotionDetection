@@ -35,11 +35,11 @@ export default function PainGraph() {
             return response.json();
         })
         .then(data => {
-            console.log('data' + data.values);
+            console.log('pain data' + data.values);
             setTimestamps(data.timestamps);
             setValues(data.values);
-            setValues2(data.values2);
-            setValues3(data.values3);
+            // setValues2(data.values2);
+            // setValues3(data.values3);
             setLoading(false);
         })
         .catch(error => {

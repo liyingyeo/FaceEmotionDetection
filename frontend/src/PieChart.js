@@ -55,10 +55,10 @@ const PieChart = () => {
         labels: data.labels,
         datasets: [
           {
-            label: 'Color Distribution',
+            label: 'Emotion Distribution',
             data: data.data,
-            backgroundColor: ['red','yellow','green','blue','pink', 'purple'],
-            borderColor: ['red','yellow','green','blue','pink', 'purple'],
+            backgroundColor: ['#d93204','#6666FF','#FFFF00','#DDDDDD','#027540', '#9f02e8', '#8bb881', 'f78f45'],
+            borderColor: ['#d93204','#6666FF','#FFFF00','#DDDDDD','#027540', '#9f02e8', '#8bb881', 'f78f45'],
             borderWidth: 1,
           },
         ],

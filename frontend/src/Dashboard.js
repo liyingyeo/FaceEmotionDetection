@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState, useLayoutEffect } from 'react';
 import Button from 'react-bootstrap/Button';
 import io from 'socket.io-client';
+
+import Attention from './Attention.js';
 import EmotionBar from './EmotionBar.js';
 import PainGraph from './PainGraph.js';
 import PieChart from './PieChart.js';
@@ -22,6 +24,18 @@ export default function Dashboard() {
   const [buttonText, setButtonText] = useState('Start');
   const [isOnline, setOnline] = useState(false);
   const socket = io.connect(API_URL); // Adjust to your Flask server's URL
+
+  // Generate a random UID (Universal Unique Identifier)
+  function generateUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+  }
+
+  // Store the UID for this client
+  const uid = generateUID();
 
 
   const handleClick = (e) => {
@@ -72,6 +86,7 @@ const startVideoStream = async () => {
 
     detections.forEach(detection => {
       const bbox = detection.bbox; // [x1, y1, x2, y2]
+      const name = detection.name;
       const predicted_emotion = detection.predicted_emotion;
       const Emotion_percent = detection.Emotion_percent;
       const predicted_pain = detection.predicted_pain;
@@ -85,7 +100,7 @@ const startVideoStream = async () => {
       ctx.stroke();
 
       // Draw label (class name + confidence)
-      const label = `${predicted_emotion} (${(Emotion_percent).toFixed(2)}%) ${predicted_pain}`;
+      const label = `${name} ${predicted_emotion} (${(Emotion_percent).toFixed(2)}%) ${predicted_pain}`;
       ctx.fillStyle = 'red';
       ctx.font = '14px Arial';
       ctx.fillText(label, bbox[0], bbox[1] > 10 ? bbox[1] - 5 : 10);
@@ -127,7 +142,7 @@ const startVideoStream = async () => {
           socket.emit('video_frame', JSON.stringify({ image: frameBase64, timestamp: timestamp }));
         }
       }
-    }, 100); // Send every 1 second (100 ms)
+    }, 1000); // Send every 1 second (100 ms)
 
     socket.on('connect', () => {
       console.log("WebSocket connection established");
@@ -295,7 +310,9 @@ const startVideoStream = async () => {
                         {`${box.predicted_emotion} (${Math.round(box.Emotion_percent * 100)}%)`}
                         </div>
                     ))} */}
+                    <Attention/>
                   </div>
+                  
                 </div>
                 <div class="col-4" >
                   <div class="row"  style={{ position: 'relative', display: 'inline-block' , height : '140px'}}>
@@ -304,14 +321,15 @@ const startVideoStream = async () => {
                     </div>
                   </div>
                   <div class="row"  style={{ position: 'relative', display: 'inline-block' , height : '300px', width: '500px'}}>
-                  <PieChart></PieChart>
+                  <PainGraph />
                   </div>
                     
                 </div>
               </div>
               <div class="row" >
                 <div class="col-12" >
-                    <PainGraph />
+                   
+                    <PieChart></PieChart>
                 </div>
               </div>
             </div>
