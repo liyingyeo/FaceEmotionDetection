@@ -1,6 +1,6 @@
 # import eventlet
 # eventlet.monkey_patch()  # This must be called before other imports
-from flask import Flask, render_template,send_from_directory
+from flask import Flask, render_template,send_from_directory, jsonify, request
 from flask_socketio import SocketIO
 import base64
 from io import BytesIO
@@ -15,14 +15,14 @@ import face_recognition
 import time
 import pytz
 import os
-from database import EmotionRecord, AttentionRecord, Database
+from database import EmotionRecord, ProfileRecord, Database, Session
 
 db = Database()
 
 # Get the value of an environment variable
 mode = os.getenv('MODE', "CUSTOM")
 
-from tensorflow.keras.models import model_from_json  
+from tensorflow.keras.models import model_from_json   # type: ignore
 from tensorflow.keras.preprocessing import image
 from tensorflow.keras.models import load_model
 import cv2
@@ -32,12 +32,45 @@ import cv2
 app = Flask(__name__, static_folder='frontend/build/static', template_folder='frontend/build')
 app.config['CORS_HEADERS'] = 'Content-Type'
 cors = CORS(app)
-#socketio = SocketIO(cors)
 socketio = SocketIO(app, cors_allowed_origins="*")
-#socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*")
+MODEL_DIR = os.getenv('MODEL_DIR', 'models')
+emotions = ["Anger", "Fear", "Happy", "Neutral", "Sadness", "Surprise", "Disgust", "Contempt"]
 
-#socketio = SocketIO(app)
+models_dict = {}
+resnet_model = None
+def load_models_from_directory():
+    global models_dict
+    # Loop over the files in the directory
+    for filename in os.listdir(MODEL_DIR):
+        file_path = os.path.join(MODEL_DIR, filename)
+        
+        # Check if the file is a .keras model
+        if filename.endswith('.keras'):
+            model_name = os.path.splitext(filename)[0]
+            models_dict[model_name] = load_model(file_path)
+            print(f"Loaded .keras model: {model_name}")
 
+        # Check if the file is a .json model
+        elif filename.endswith('.json'):
+            model_name = os.path.splitext(filename)[0]
+            with open(file_path, 'r') as json_file:
+                json_model = json_file.read()
+                model = model_from_json(json_model)
+                # Load weights if available
+                weight_file = os.path.join(MODEL_DIR, f'{model_name}.h5')
+                if os.path.exists(weight_file):
+                    model.load_weights(weight_file)
+                models_dict[model_name] = model
+                print(f"Loaded .json model: {model_name}")
+
+# API to get the list of models
+@app.route('/api/models', methods=['GET'])
+def get_models():
+    model_list = list(models_dict.keys())
+    return jsonify(model_list)
+
+
+    
 
 # Load the YOLO model
 #yolo_model = YOLO('yolov8n.pt')  # YOLOv8n is the smallest version, you can choose another model
@@ -47,25 +80,24 @@ if(mode == "YOLO"):
     yolo_model = YOLO('yolov8n-face.pt')  # YOLOv8n is the smallest version, you can choose another model
 
 
-resnet_model = None
+
 sfr = None
-model_json = 'InceptResNet_IG_multi_v3.json'
-model_h5 = 'InceptResNet_IG_multi_v3.weights.h5'
-emotions = ["Anger", "Fear", "Happy", "Neutral", "Sadness", "Surprise", "Disgust", "Contempt"]
+# model_json = 'InceptResNet_IG_multi_v3.json'
+# model_h5 = 'InceptResNet_IG_multi_v3.weights.h5'
     
-if(mode == "CUSTOM"):
-    #load emotional recognition model  
-    resnet_model = model_from_json(open(model_json, 'r', encoding='utf-8').read())
+# if(mode == "CUSTOM"):
+#     #load emotional recognition model  
+#     resnet_model = model_from_json(open(model_json, 'r', encoding='utf-8').read())
 
-    # #load weights  
-    resnet_model.load_weights(model_h5)
-    # Load the model from the .keras file
-    #resnet_model = load_model('InceptResNet_IG_multi_v2.14.keras')
+#     # #load weights  
+#     resnet_model.load_weights(model_h5)
+#     # Load the model from the .keras file
+#     #resnet_model = load_model('InceptResNet_IG_multi_v2.14.keras')
 
 
 
-    sfr = SimpleFacerec()
-    sfr.load_encoding_images("images/")
+sfr = SimpleFacerec()
+sfr.load_encoding_images("images/")
 pain_data = [];
 pain_timestamp = [];
 emotion_bar_data=[];
@@ -96,14 +128,16 @@ def attention():
     return json.dumps({'status': 'success',  "data" : count })
 
 
-@app.route('/pie_data')
+@app.route('/pie_data/<string:id>')
 @cross_origin()
-def pie_data():
-    if(len(emotion_daily_data)>6):
-        emotion_daily_data.pop(0);
+def pie_data(id):
+    # if(len(emotion_daily_data)>6):
+    #     emotion_daily_data.pop(0);
     
-    emotion_daily_data.append(random.randint(1, 3)) 
-
+    # emotion_daily_data.append(random.randint(1, 3)) 
+    result = db.findPieData(id)
+    emotions = [row[0] for row in result]
+    emotion_daily_data = [row[1] for row in result]
     # for _ in range(10):
     #     value.append(random.randint(1, 10))  # Random numbers between 1 and 10
         #value2.append(random.randint(1, 10))  # Random numbers between 1 and 10
@@ -156,15 +190,17 @@ def handle_video_frame(message):
     current_time = datetime.now(singapore_tz)
 
     data = json.loads(message)
+    uuid = data['uuid']
     image_data = data['image']
     client_timestamp = data['timestamp']
+    selected_model = data['selected_model']
 
     # Get server-side timestamp (current time)
     server_timestamp = int(time.time() * 1000)  # Milliseconds
 
     # If the timestamp difference is more than 1 second, skip processing
     if server_timestamp - client_timestamp > 2000:
-        print("Skipping frame due to timestamp difference > 0.5 second")
+        print("Skipping frame due to timestamp difference > 2 second")
         return ''
     
     # Save the Base64-encoded image to a file
@@ -220,6 +256,20 @@ def handle_video_frame(message):
             if len(frame_sequence) > max_sequence_length:
                 frame_sequence.pop(0)
                 sequence_input = np.expand_dims(np.array(frame_sequence), axis=0)
+
+                if(len(models_dict.keys())>0):
+                    print('selected_model : ', selected_model)
+                    if(selected_model=='default' or selected_model==''):
+                        first_model_name = list(models_dict.keys())[0]
+                        resnet_model = models_dict[first_model_name]
+                        print(f"Resnet model: {first_model_name}")
+                    else: 
+                        resnet_model = models_dict[selected_model]
+                        print(f"Resnet model: {selected_model}")
+                else:
+                    print('No model found, please copy your model into models folder')
+                    return ''
+
                 predictions = resnet_model.predict(sequence_input)     
                 emotion_predictions = predictions[0]   
                 pain_predictions = predictions[1]  
@@ -287,12 +337,93 @@ def handle_video_frame(message):
         #print(f"face_recognition call took {elapsed_time:.2f} seconds")
 
         
-    socketio.emit('processed_frame', json.dumps({'status': 'success', 'detections': detections}))
+    socketio.emit('processed_frame', json.dumps({'uuid': uuid,'status': 'success', 'detections': detections}))
     #socketio.send(jsonify({'status': 'success', 'detections': detections}))
     return ''
 
+
+@app.route('/profiles', methods=['GET'])
+@cross_origin()
+def get_profiles():
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 5, type=int)
+    search = request.args.get('search', '', type=str)
+    
+    session = Session()
+    
+    try:
+        query = session.query(ProfileRecord)
+        if search:
+            query = query.filter(ProfileRecord.name.ilike(f'%{search}%'))
+        profiles = query.offset((page - 1) * per_page).limit(per_page).all()
+        total = session.query(ProfileRecord).count()
+
+        return jsonify({
+            'profiles': [{'id': profile.id, 'name': profile.name, 'email': profile.email} for profile in profiles],
+            'total': total,
+            'pages': (total // per_page) + (1 if total % per_page > 0 else 0),
+            'current_page': page
+        })
+    finally:
+        session.close()
+
+@app.route('/profiles', methods=['POST'])
+@cross_origin()
+def create_profile():
+    data = request.get_json()
+    session = Session()
+
+    try:
+        new_profile = ProfileRecord(name=data['name'], email=data['email'])
+        session.add(new_profile)
+        session.commit()
+        return jsonify({'message': 'Profile created!'})
+    finally:
+        session.close()
+
+
+@app.route('/profiles/<int:id>', methods=['PUT'])
+@cross_origin()
+def update_profile(id):
+    data = request.get_json()
+    session = Session()
+
+    try:
+        profile = session.query(ProfileRecord).filter(ProfileRecord.id == id).first()
+        if not profile:
+            return jsonify({'message': 'Profile not found'}), 404
+
+        profile.name = data['name']
+        profile.email = data['email']
+        session.commit()
+        return jsonify({'message': 'Profile updated!'})
+    finally:
+        session.close()
+
+# Delete a profile
+@app.route('/profiles/<int:id>', methods=['DELETE'])
+@cross_origin()
+def delete_profile(id):
+    profile = ProfileRecord.query.get_or_404(id)
+    session = Session()
+
+    try:
+        profile = session.query(ProfileRecord).filter(ProfileRecord.id == id).first()
+        if not profile:
+            return jsonify({'message': 'Profile not found'}), 404
+
+        session.delete(profile)
+        session.commit()
+        return jsonify({'message': 'Profile deleted!'})
+    finally:
+        session.close()
+
 # Run the Flask server with WebSocket support
 if __name__ == "__main__":
+
+    #Load models from models folder
+    load_models_from_directory()
+
     #Development
     socketio.run(app, host='0.0.0.0', port=8080, debug=True)
     #Production

@@ -7,7 +7,8 @@ import {API_URL} from './Config.js';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-const PieChart = () => {
+const PieChart = (props) => {
+  const [profileName, setProfileName] = useState(null)
   const [chartData, setChartData] = useState({
     labels: [],
     datasets: [
@@ -44,9 +45,10 @@ const PieChart = () => {
 
 
   // Fetch data from server-side API
-  const fetchData = async () => {
+  const fetchData = async (parapara) => {
     try {
-      const response = await fetch(apiUrl + '/pie_data');
+      console.log(profileName);
+      const response = await fetch(apiUrl + '/pie_data/' + parapara);
       const data = await response.json();
 
       // Assume the API returns data in the format:
@@ -69,22 +71,28 @@ const PieChart = () => {
   };
 
   useEffect(() => {
+
+    console.log('useEffect' + props.profileName)
+    setProfileName(props.profileName);
     // Fetch data on component mount
-    fetchData();
+    fetchData(props.profileName);
 
     // Fetch data every 10 seconds
-    const intervalId = setInterval(fetchData, 5000);
+    const intervalId = setInterval(function(){fetchData(props.profileName);}, 5000);
 
     // Cleanup interval on component unmount
     return () => clearInterval(intervalId);
-  }, []);
+  }, [props]);
 
   return (
     <div >
         <div class="row" style={{textAlign : 'left'}}>
       <h1>Daily Emotion</h1></div>
       <div class="row">
+      {chartData? (
       <Pie className='pieChart' data={chartData} options={options} />
+      ):
+      (<div>No data found</div>)}
       </div>
     </div>
   );

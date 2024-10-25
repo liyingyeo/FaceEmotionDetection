@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState, useLayoutEffect } from 'react';
 
 import {API_URL} from './Config.js';
 import Dashboard from './Dashboard.js';
+
+import Profile from './Profile.js';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 //import VideoDetection from './VideoDetection.js';
@@ -9,17 +11,80 @@ import './App.css';
 const App = () => {
 
   const [activeTab, setActiveTab] = useState('Tab1');
+  const [models, setModels] = useState([]);   // To store the list of models
+  const [selectedModel, setSelectedModel] = useState('default'); // To store the selected model
+  const [refreshRate, setRefreshRate] = useState('500'); // To store the selected model
+  const [message, setMessage] = useState(''); // To store the response message from the server
+
+  // Generate a random UID (Universal Unique Identifier)
+  function generateUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+  }
+
+  // Store the UID for this client
+  const uuid = generateUID();
+
+
+  useEffect(() => {
+    fetch(API_URL + '/api/models')
+      .then(response => response.json())
+      .then(data => setModels(data))
+      .catch(error => console.error('Error fetching models:', error));
+  }, []);
   
+  const handleModelSelect = (event) => {
+    setSelectedModel(event.target.value);
+  };
+
+
   const renderContent = () => {
     switch (activeTab) {
       case 'Tab1':
         // return <div></div>
-        return <Dashboard></Dashboard>;
+        return <Dashboard refreshRate={refreshRate} uuid={uuid} selectedModel={selectedModel}></Dashboard>;
       case 'Tab2':
         // return <VideoDetection width="640px" height="480px"></VideoDetection>;
-        return <div></div>
+        return <Profile/>
       case 'Tab3':
-        return <div>This is Tab 3 content</div>;
+        return <div>
+            <div className='row'>
+            <div class="col-2" >Select a Model</div>
+            <div class="col-10" style={{textAlign: 'left'}}>
+            {models.length > 0 ? (
+              <>
+                <select value={selectedModel} onChange={handleModelSelect}>
+                  <option value="" disabled>Select a model</option>
+                  {models.map((model, index) => (
+                    <option key={index} value={model}>
+                      {model}
+                    </option>
+                  ))}
+                </select>
+              </>
+            ) : (
+              <p>Loading models...</p>
+            )}
+
+            {message && <p>{message}</p>}
+            </div>
+            </div>
+            <div className='row'>
+              <div class="col-2" >Refresh Rate : </div>
+              <div class="col-4">
+                <input
+                type="text"
+                className="form-control"
+                placeholder="Frequency to send to server"
+                value={refreshRate}
+                onChange={(e) => setRefreshRate(e.target.value)}
+              /> 
+              </div>
+            </div>
+          </div>;
       default:
         return <div>Tab not found</div>;
     }

@@ -3,12 +3,13 @@ import cv2
 import os
 import glob
 import numpy as np
+from database import EmotionRecord, ProfileRecord, Database, Session
+
 
 class SimpleFacerec:
     def __init__(self):
         self.known_face_encodings = []
         self.known_face_names = []
-
         # Resize frame for a faster speed
         self.frame_resizing = 0.25
 
@@ -37,15 +38,21 @@ class SimpleFacerec:
             # Store file name and file encoding
             self.known_face_encodings.append(img_encoding)
             self.known_face_names.append(filename)
+            session = Session()
+            try:
+                profile = session.query(ProfileRecord).filter(ProfileRecord.name == filename).first()
+                if not profile:
+                    print(filename, 'not found')
+                    new_profile = ProfileRecord(name=filename, email=filename + '@justexample.com')
+                    session.add(new_profile)
+                    session.commit()
+
+            finally:
+                session.close()
         print("Encoding images loaded")
 
     def detect_known_faces(self, frame):
-        #small_frame = cv2.resize(frame, (0, 0), fx=self.frame_resizing, fy=self.frame_resizing)
-        # Find all the faces and face encodings in the current frame of video
-        # Convert the image from BGR color (which OpenCV uses) to RGB color (which face_recognition uses)
-        #rgb_small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
         face_locations = face_recognition.face_locations(frame)
-        #print('detect_known_faces -inner ' , face_locations)
         face_encodings = face_recognition.face_encodings(frame, face_locations)
 
         face_names = []

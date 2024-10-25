@@ -10,7 +10,7 @@ import './Dashboard.css';
 import {API_URL} from './Config.js';
 
 
-export default function Dashboard() {
+export default function Dashboard({ uuid, selectedModel,refreshRate }) {
     // const Dashboard = () => {
     
     const videoRef = useRef(null);
@@ -23,24 +23,14 @@ export default function Dashboard() {
   const [isDisabled, setIsDisabled] = useState(false);
   const [buttonText, setButtonText] = useState('Start');
   const [isOnline, setOnline] = useState(false);
+  
   const socket = io.connect(API_URL); // Adjust to your Flask server's URL
 
-  // Generate a random UID (Universal Unique Identifier)
-  function generateUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-        const r = Math.random() * 16 | 0;
-        const v = c === 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-    });
-  }
-
-  // Store the UID for this client
-  const uid = generateUID();
-
+  
 
   const handleClick = (e) => {
     if (startSend) {
-      console.log("startSend" + startSend + 'Start') ;
+      //console.log("startSend" + startSend + 'Start') ;
       setStartSend(false);
       setButtonText("Start");
       const canvas = canvasRef.current;
@@ -49,7 +39,7 @@ export default function Dashboard() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       setStreaming(false);
     } else {
-      console.log("startSend" + startSend + 'Stop');
+      //console.log("startSend" + startSend + 'Stop');
       setStartSend(true);
       setButtonText("Stop");
       const canvas = canvasRef.current;
@@ -77,34 +67,36 @@ const startVideoStream = async () => {
 
   function drawDetections(detections) {
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    // Clear previous detections
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if(canvas){
+      const ctx = canvas.getContext('2d');
+      // Clear previous detections
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw the current video frame
-    //ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      // Draw the current video frame
+      //ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
 
-    detections.forEach(detection => {
-      const bbox = detection.bbox; // [x1, y1, x2, y2]
-      const name = detection.name;
-      const predicted_emotion = detection.predicted_emotion;
-      const Emotion_percent = detection.Emotion_percent;
-      const predicted_pain = detection.predicted_pain;
-      //const classIndex = detection.class;
+      detections.forEach(detection => {
+        const bbox = detection.bbox; // [x1, y1, x2, y2]
+        const name = detection.name;
+        const predicted_emotion = detection.predicted_emotion;
+        const Emotion_percent = detection.Emotion_percent;
+        const predicted_pain = detection.predicted_pain;
+        //const classIndex = detection.class;
 
-      // Draw bounding box
-      ctx.beginPath();
-      ctx.strokeStyle = 'red';
-      ctx.lineWidth = 2;
-      ctx.rect(bbox[0], bbox[1], bbox[2] - bbox[0], bbox[3] - bbox[1]);
-      ctx.stroke();
+        // Draw bounding box
+        ctx.beginPath();
+        ctx.strokeStyle = 'red';
+        ctx.lineWidth = 2;
+        ctx.rect(bbox[0], bbox[1], bbox[2] - bbox[0], bbox[3] - bbox[1]);
+        ctx.stroke();
 
-      // Draw label (class name + confidence)
-      const label = `${name} ${predicted_emotion} (${(Emotion_percent).toFixed(2)}%) ${predicted_pain}`;
-      ctx.fillStyle = 'red';
-      ctx.font = '14px Arial';
-      ctx.fillText(label, bbox[0], bbox[1] > 10 ? bbox[1] - 5 : 10);
-    });
+        // Draw label (class name + confidence)
+        const label = `${name} ${predicted_emotion} (${(Emotion_percent).toFixed(2)}%) ${predicted_pain}`;
+        ctx.fillStyle = 'red';
+        ctx.font = '14px Arial';
+        ctx.fillText(label, bbox[0], bbox[1] > 10 ? bbox[1] - 5 : 10);
+      });
+    }
   }
 
   useLayoutEffect(() => {
@@ -139,10 +131,11 @@ const startVideoStream = async () => {
           const timestamp = Date.now();
           // Send Base64-encoded frame over WebSocket
           //socket.emit('video_frame', frameBase64);
-          socket.emit('video_frame', JSON.stringify({ image: frameBase64, timestamp: timestamp }));
+          //console.log("selectedModel" + selectedModel + 'selectedModel');
+          socket.emit('video_frame', JSON.stringify({uuid: uuid, image: frameBase64, timestamp: timestamp, selected_model: selectedModel }));
         }
       }
-    }, 1000); // Send every 1 second (100 ms)
+    }, refreshRate); // Send every 1 second (100 ms)
 
     socket.on('connect', () => {
       console.log("WebSocket connection established");
@@ -154,9 +147,13 @@ const startVideoStream = async () => {
     socket.on('processed_frame', (data) => {
       //const detection = JSON.parse(data); // Parse the received JSON data
       const boxes = JSON.parse(data);  // Parse the received JSON data
+
+      if(uuid == boxes.uuid){
+        drawDetections(boxes.detections);
+      }
       //console.log(boxes);
       //setBoxes(boxes);
-      drawDetections(boxes.detections);
+      
 
       // const bbox = detection.bbox; // [x1, y1, x2, y2]
       // console.log(bbox);
@@ -273,11 +270,11 @@ const startVideoStream = async () => {
                         }
                         <div style={{ float: 'left', position: 'relative' }}>
                         {isOnline
-                        ? <Button variant="primary" onClick={handleClick}>{buttonText}</Button>
+                        ? <Button variant="primary" style={{height: '30px', paddingTop: '2px'}} onClick={handleClick}>{buttonText}</Button>
                         : <Button variant="primary" onClick={handleClick} disabled>{buttonText}</Button>
 
                         }
-                
+                        <span style={{padding: '2px'}}>Model : {selectedModel}</span>
                     </div>
                   </div>
                 </div>
@@ -321,17 +318,17 @@ const startVideoStream = async () => {
                     </div>
                   </div>
                   <div class="row"  style={{ position: 'relative', display: 'inline-block' , height : '300px', width: '500px'}}>
-                  <PainGraph />
+                    <PainGraph />
                   </div>
                     
                 </div>
               </div>
-              <div class="row" >
+              {/* <div class="row" >
                 <div class="col-12" >
                    
                     <PieChart></PieChart>
                 </div>
-              </div>
+              </div> */}
             </div>
           </div> 
         </div>

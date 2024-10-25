@@ -1,11 +1,13 @@
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import func
+from sqlalchemy import func, and_
+
 import pytz
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 Base = declarative_base()
+
 
 class EmotionRecord(Base):
     __tablename__ = 'emotions'
@@ -24,13 +26,25 @@ class EmotionRecord(Base):
 #     pain_level = Column(String)  # pain level value integer (0 = no pain, 1 = pain, 2 = very pain)
 #     userid = Column(String)  # UserID to link this record to a user
 
-class AttentionRecord(Base):
-    __tablename__ = 'attention'
+# class AttentionRecord(Base):
+#     __tablename__ = 'attention'
+#     id = Column(Integer, primary_key=True)
+#     datetime = Column(DateTime, default=lambda: datetime.now(singapore_tz))
+#     pain_level = Column(String)
+#     emotion = Column(String)
+#     userid = Column(String)
+
+class ProfileRecord(Base):
+    __tablename__ = 'profiles'
     id = Column(Integer, primary_key=True)
-    datetime = Column(DateTime, default=lambda: datetime.now(singapore_tz))
-    pain_level = Column(String)
-    emotion = Column(String)
-    userid = Column(String)
+    created_datetime = Column(DateTime, default=lambda: datetime.now(singapore_tz))
+    name = Column(String)
+    gender = Column(String)
+    dob = Column(String)
+    email = Column(String)
+    remarks = Column(String)
+    image = Column(String)
+
 
 singapore_tz = pytz.timezone('Asia/Singapore')  
 DATABASE_URL = 'sqlite:///emotions.db'  # Change to your database URL
@@ -75,6 +89,21 @@ class Database:
             count = result.scalar()  # Fetch the count from the result
 
         return count
+    
+    def findPieData(self,id):
+        result = session.query(
+            EmotionRecord.emotion_detected,
+            func.count(EmotionRecord.emotion_detected).label('emotion_count')
+        ).filter(
+            and_(
+                EmotionRecord.userid == id,  # Replace with the actual user ID
+                func.date(EmotionRecord.my_timestamp) == date.today()  # Replace with your timestamp column
+            )
+        ).group_by(EmotionRecord.emotion_detected).all()
+        return result
+    
+    
+
 
 
 
