@@ -312,6 +312,7 @@ def handle_video_frame(message):
                     last_insert_time = current_time
                     if(len(pain_data)>20):
                         pain_data.pop(0);
+                        pain_timestamp.pop(0)
                     pain_timestamp.append(current_time)
                     pain_data.append(int(max_index_pain)) 
                     emotion_record = EmotionRecord(emotion_detected=predicted_emotion,userid=pname,pain_level=int(max_index_pain)) # Insert emotion into the database
