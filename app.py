@@ -16,6 +16,7 @@ import time
 import pytz
 import os
 from database import EmotionRecord, ProfileRecord, Database, Session
+from collections import defaultdict
 
 db = Database()
 
@@ -98,9 +99,9 @@ sfr = None
 
 sfr = SimpleFacerec()
 sfr.load_encoding_images("images/")
-pain_data = [];
-pain_timestamp = [];
-emotion_bar_data=[];
+pain_data = defaultdict(list);
+pain_timestamp = defaultdict(list);
+emotion_bar_data = defaultdict(list);
 emotion_daily_data=[];
 frame_sequence = [];
 max_sequence_length = 3 
@@ -115,10 +116,10 @@ def index():
     return render_template('index.html')
 
 
-@app.route('/bar_data')
+@app.route('/bar_data/<string:uuid>')
 @cross_origin()
-def bar_data():
-    return json.dumps({'status': 'success',  "data" : emotion_bar_data })
+def bar_data(uuid):
+    return json.dumps({'status': 'success',  "data" : emotion_bar_data[uuid] })
 
 
 @app.route('/attention')
@@ -147,9 +148,9 @@ def pie_data(id):
     
 
 
-@app.route('/data')
+@app.route('/data/<string:uuid>')
 @cross_origin()
-def data():
+def data(uuid):
     # value = [];
     # value2 = [];
     # value3 = [];
@@ -167,13 +168,13 @@ def data():
 
     # # Generate timestamps for the next 10 minutes with a 1-minute interval
     #timestamps = [start_time + timedelta(minutes=i) for i in range(20)]
-    timestamp_strings = [timestamp.isoformat() for timestamp in pain_timestamp]
+    timestamp_strings = [timestamp.isoformat() for timestamp in pain_timestamp[uuid]]
 
     #print('timestamp_strings', timestamp_strings)
 
     #print('pain_data', pain_data)
 
-    return json.dumps({'status': 'success', "timestamps" : timestamp_strings, 'values': pain_data })
+    return json.dumps({'status': 'success', "timestamps" : timestamp_strings, 'values': pain_data[uuid] })
 
 
 @app.route('/static/<path:path>')
@@ -302,19 +303,19 @@ def handle_video_frame(message):
 
                 #sampling rate 2 sec
                 if (current_time - last_insert_time).total_seconds() >= 2:
-                    if(len(emotion_bar_data)>10):
-                        emotion_bar_data.pop(0)
-                    emotion_bar_data.append({
+                    if(len(emotion_bar_data[uuid])>10):
+                        emotion_bar_data[uuid].pop(0)
+                    emotion_bar_data[uuid].append({
                         'predicted_emotion' : predicted_emotion,
                         'predicted_pain' : predicted_pain,
                         'timestamp' : client_timestamp
                     })
                     last_insert_time = current_time
-                    if(len(pain_data)>20):
-                        pain_data.pop(0);
-                        pain_timestamp.pop(0)
-                    pain_timestamp.append(current_time)
-                    pain_data.append(int(max_index_pain)) 
+                    if(len(pain_data[uuid])>20):
+                        pain_data[uuid].pop(0);
+                        pain_timestamp[uuid].pop(0)
+                    pain_timestamp[uuid].append(current_time)
+                    pain_data[uuid].append(int(max_index_pain)) 
                     emotion_record = EmotionRecord(emotion_detected=predicted_emotion,userid=pname,pain_level=int(max_index_pain)) # Insert emotion into the database
                     db.save(emotion_record)   
                     #pain_record = PainRecord(pain_level=predicted_pain,userid=pname) # Insert pain into the datebase

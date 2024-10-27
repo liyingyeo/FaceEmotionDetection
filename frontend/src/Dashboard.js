@@ -314,11 +314,11 @@ const startVideoStream = async () => {
                 <div class="col-4" >
                   <div class="row"  style={{ position: 'relative', display: 'inline-block' , height : '140px'}}>
                     <div class="col-12" >
-                    <EmotionBar/>
+                    <EmotionBar uuid={uuid}/>
                     </div>
                   </div>
                   <div class="row"  style={{ position: 'relative', display: 'inline-block' , height : '300px', width: '500px'}}>
-                    <PainGraph />
+                    <PainGraph  uuid={uuid}/>
                   </div>
                     
                 </div>

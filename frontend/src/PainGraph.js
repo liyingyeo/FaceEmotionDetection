@@ -10,7 +10,7 @@ import {API_URL} from './Config.js';
 // Register chart.js components
 ChartJS.register(CategoryScale, LinearScale, LineElement,PointElement, TimeScale, Title, Tooltip, Legend);
 
-export default function PainGraph() {
+export default function PainGraph(props) {
     //const [timestamps, setTimestamps] = useState([]);
 //   const timestamps = ["2024-10-07T14:00:00Z", "2024-10-07T14:01:00Z", "2024-10-07T14:02:00Z"];
 //   const values =  [10, 20, 15];
@@ -27,7 +27,7 @@ export default function PainGraph() {
     
     const fetchGraphData = setInterval(() => {
         
-        fetch(apiUrl + '/data')
+        fetch(apiUrl + '/data/'+props.uuid)
         .then(response => {
             if (!response.ok) {
             throw new Error('Network response was not ok');

@@ -15,7 +15,7 @@ import { ReactComponent as Contempt } from './emoji/Contempt.svg';
 
 import {API_URL} from './Config.js';
 
-export default function EmotionBar() {
+export default function EmotionBar(props) {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -41,7 +41,7 @@ export default function EmotionBar() {
     
     const fetchBarData = setInterval(() => {
         console.log('API_URL' + API_URL);
-        fetch(apiUrl + '/bar_data')
+        fetch(apiUrl + '/bar_data/'+props.uuid)
         .then(response => {
             if (!response.ok) {
             throw new Error('Network response was not ok');
