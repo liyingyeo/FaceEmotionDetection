@@ -265,8 +265,13 @@ def handle_video_frame(message):
                         resnet_model = models_dict[first_model_name]
                         print(f"Resnet model: {first_model_name}")
                     else: 
-                        resnet_model = models_dict[selected_model]
-                        print(f"Resnet model: {selected_model}")
+                        if selected_model in models_dict.keys():
+                            resnet_model = models_dict[selected_model]
+                            print(f"Resnet model: {selected_model}")
+                        else:
+                            first_model_name = list(models_dict.keys())[0]
+                            resnet_model = models_dict[first_model_name]
+                            print(f"Resnet model: {first_model_name}")
                 else:
                     print('No model found, please copy your model into models folder')
                     return ''

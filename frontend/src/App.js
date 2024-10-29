@@ -12,7 +12,7 @@ const App = () => {
 
   const [activeTab, setActiveTab] = useState('Tab1');
   const [models, setModels] = useState([]);   // To store the list of models
-  const [selectedModel, setSelectedModel] = useState('default'); // To store the selected model
+  const [selectedModel, setSelectedModel] = useState('InceptResNet_IG_multi_v8g'); // To store the selected model
   const [refreshRate, setRefreshRate] = useState('500'); // To store the selected model
   const [message, setMessage] = useState(''); // To store the response message from the server
 
