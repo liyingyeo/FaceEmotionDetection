@@ -73,7 +73,7 @@ export default function EmotionBar(props) {
                     data.map((svgName, index) => {
                     const SvgComponent = svgComponents[svgName.predicted_emotion]; // Get the component based on svgName
                     return (
-                        <div key={index} style={{width: '50px', height: '50px'}} className="svg-item">
+                        <div key={index} style={{width: '51px', height: '50px',fontSize: '10px'}} className="svg-item">
                             {svgName.predicted_emotion}
                         {SvgComponent ? <SvgComponent width='40px' height='40px' /> : <p>Unknown SVG</p>}
                         <div style={{fontSize: '7px'}}>{new Date(svgName.timestamp).toLocaleTimeString('en-US', {
